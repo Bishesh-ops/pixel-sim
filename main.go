@@ -139,6 +139,8 @@ func (g *Game) Update() error {
 	}
 
 	mx, my := ebiten.CursorPosition()
+
+	// sidebar click
 	if mx >= gameWidth {
 		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 			col, row := (mx-gameWidth)/25, my/25
@@ -148,6 +150,7 @@ func (g *Game) Update() error {
 			}
 		}
 	} else if mx >= 0 && my >= 0 && my < gameHeight {
+		// painting
 		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 			g.spawn(mx, my, g.selected)
 		}
@@ -156,7 +159,7 @@ func (g *Game) Update() error {
 		}
 	}
 
-	g.runPhysics()
+	g.sim()
 	g.frameCount++
 	return nil
 }
@@ -286,7 +289,7 @@ func (g *Game) runPhysics() {
 			// PLANTS (Grow Up/Out)
 			if cell == Plant {
 				if rand.Float32() < 0.04 {
-					g.handlePlantGrowth(x, y)
+					g.growPlant(x, y)
 				}
 				continue
 			}
@@ -310,6 +313,7 @@ func (g *Game) handlePlantGrowth(x, y int) {
 			tx, ty := x+dx, y+dy
 			if tx >= 0 && tx < gameWidth && ty >= 0 && ty < gameHeight {
 				tIdx := ty*gameWidth + tx
+				// drinks water
 				if g.grid[tIdx] == Water {
 					// Drink the water
 					g.grid[tIdx] = Plant // Or Empty if you want roots
@@ -329,7 +333,7 @@ func (g *Game) handlePlantGrowth(x, y int) {
 	}
 }
 
-func (g *Game) spreadFire(x, y int) {
+func (g *Game) burn(x, y int) {
 	tx, ty := x+(rand.Intn(3)-1), y+(rand.Intn(3)-1)
 	if tx >= 0 && tx < gameWidth && ty >= 0 && ty < gameHeight {
 		tIdx := ty*gameWidth + tx
@@ -345,6 +349,7 @@ func (g *Game) spreadFire(x, y int) {
 }
 
 func (g *Game) explode(cx, cy, r int) {
+	// circle blast
 	for y := -r; y <= r; y++ {
 		for x := -r; x <= r; x++ {
 			if x*x+y*y <= r*r {
@@ -385,6 +390,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	for i := range g.pixels {
 		g.pixels[i] = 0
 	}
+
+	// draw grid
 	for y := 0; y < gameHeight; y++ {
 		for x := 0; x < gameWidth; x++ {
 			idx := y*gameWidth + x
@@ -402,6 +409,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	ebitenutil.DrawRect(screen, float64(gameWidth), 0, float64(toolbarWidth), float64(screenHeight), color.RGBA{30, 30, 40, 255})
 	mx, my := ebiten.CursorPosition()
 	hovered := ""
+
 	for i, m := range materials {
 		bx, by := float64(gameWidth+8+(i%2)*25), float64(8+(i/2)*25)
 		if g.selected == m {
@@ -412,10 +420,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			hovered = matNames[m]
 		}
 	}
+
 	if hovered != "" {
 		text.Draw(screen, hovered, basicfont.Face7x13, mx-10, my-10, color.White)
 	}
-	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("Brush: %d", g.brushSize), gameWidth+5, screenHeight-20)
+	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("Size: %d", g.brushSize), gameWidth+5, screenHeight-20)
 }
 
 func (g *Game) Layout(w, h int) (int, int) {
