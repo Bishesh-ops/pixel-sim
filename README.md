@@ -30,7 +30,7 @@ $$T_{new} = \frac{T_{up} + T_{down} + T_{left} + T_{right}}{4} \times \text{deca
 
 #  Running LocallyYou'll need Go 1.18+ installed.Bash
 # Clone the repo
-git clone https://github.com/your-username/pixel-sim.git
+git clone https://github.com/Bishesh-ops/pixel-sim.git
 
 cd pixel-sim
 
