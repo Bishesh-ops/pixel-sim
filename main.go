@@ -139,8 +139,7 @@ func (g *Game) Update() error {
 	}
 
 	mx, my := ebiten.CursorPosition()
-
-	// sidebar click
+	// sidebar check
 	if mx >= gameWidth {
 		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 			col, row := (mx-gameWidth)/25, my/25
@@ -165,11 +164,11 @@ func (g *Game) Update() error {
 }
 
 // --- PHYSICS ENGINE ---
-func (g *Game) runPhysics() {
-	// PASS 1: BOTTOM-TO-TOP (For Falling Solids & Liquids)
-	// We scan UP so that if we move a particle down, we don't encounter it again in the same frame.
+func (g *Game) sim() {
+	// PASS 1: BOTTOM-TO-TOP
+	// We scan UP so falling stuff doesn't process twice in one frame (prevents teleporting)
 	for y := gameHeight - 1; y >= 0; y-- {
-		// Alternate X sweep to prevent leaning towers
+		// Flip scan direction every frame to prevent leaning towers
 		startX, endX, stepX := 0, gameWidth, 1
 		if g.frameCount%2 == 0 {
 			startX, endX, stepX = gameWidth-1, -1, -1
@@ -179,6 +178,7 @@ func (g *Game) runPhysics() {
 			idx := y*gameWidth + x
 			cell := g.grid[idx]
 
+			// inert stuff
 			if cell == Empty || cell == Wall || cell == Stone || cell == Glass || cell == Wood {
 				continue
 			}
@@ -190,9 +190,9 @@ func (g *Game) runPhysics() {
 				if g.grid[below] == Empty {
 					g.move(idx, below)
 				} else if g.grid[below] == Water || g.grid[below] == Acid {
-					g.swap(idx, below) // Sink in fluids
+					g.swap(idx, below) // sink in liquid
 				} else {
-					// Slide down slopes
+					// slide down slopes
 					dir := rand.Intn(2)*2 - 1
 					side := y*gameWidth + x + dir
 					belowSide := (y+1)*gameWidth + x + dir
@@ -200,7 +200,7 @@ func (g *Game) runPhysics() {
 						if g.grid[belowSide] == Empty {
 							g.move(idx, belowSide)
 						} else if g.grid[side] == Empty && g.grid[belowSide] == Empty {
-							g.move(idx, side) // Fall sideways first? (optional simple physics)
+							g.move(idx, side)
 						}
 					}
 				}
@@ -215,7 +215,7 @@ func (g *Game) runPhysics() {
 						continue
 					}
 				}
-				// Disperse horizontally
+				// disperse sideways
 				dir := rand.Intn(2)*2 - 1
 				if x+dir >= 0 && x+dir < gameWidth {
 					side := y*gameWidth + x + dir
@@ -226,40 +226,40 @@ func (g *Game) runPhysics() {
 				continue
 			}
 
-			// VOLT (Electricity - Falling/Arcing)
+			// VOLT (Fixed: Don't delete self unless we actually moved)
 			if cell == Volt {
-				g.grid[idx] = Empty
-				// Arc downwards randomly
 				tx, ty := x+(rand.Intn(3)-1), y+1
 				if tx >= 0 && tx < gameWidth && ty < gameHeight {
 					tIdx := ty*gameWidth + tx
-					// FIX: Volt can move into Empty OR conduct through metal/water
-					if g.grid[tIdx] == Empty || g.grid[tIdx] == Water {
-						g.grid[tIdx] = Volt
-					} else if g.grid[tIdx] == Sand {
-						g.grid[tIdx] = Glass // Superheat sand
+					target := g.grid[tIdx]
+
+					if target == Empty {
+						g.move(idx, tIdx) // move normally
+					} else if target == Water {
+						g.grid[tIdx] = Volt // electrify water
+						g.grid[idx] = Empty
+					} else if target == Sand {
+						g.grid[tIdx] = Glass // heat reaction
+						g.grid[idx] = Empty
 					}
+					// If blocked, we do nothing (so it doesn't vanish)
 				}
 				continue
 			}
 		}
 	}
 
-	// PASS 2: TOP-TO-BOTTOM (For Rising Gases & Stationary)
-	// We scan DOWN so rising particles don't teleport to the ceiling.
+	// PASS 2: TOP-TO-BOTTOM
+	// We scan DOWN so rising stuff doesn't teleport to the ceiling
 	for y := 0; y < gameHeight; y++ {
 		startX, endX, stepX := 0, gameWidth, 1
-		if g.frameCount%2 != 0 { // Flip parity again for variety
+		if g.frameCount%2 != 0 {
 			startX, endX, stepX = gameWidth-1, -1, -1
 		}
 
 		for x := startX; x != endX; x += stepX {
 			idx := y*gameWidth + x
 			cell := g.grid[idx]
-
-			if cell == Empty || cell == Wall {
-				continue
-			}
 
 			// GASES (Smoke, Steam, Gas)
 			if cell == Smoke || cell == Steam || cell == Gas {
@@ -268,7 +268,7 @@ func (g *Game) runPhysics() {
 					if g.grid[above] == Empty {
 						g.move(idx, above)
 					} else if rand.Float32() < 0.4 {
-						// Drift sideways if blocked
+						// drift
 						dir := rand.Intn(2)*2 - 1
 						side := y*gameWidth + x + dir
 						if x+dir >= 0 && x+dir < gameWidth && g.grid[side] == Empty {
@@ -276,38 +276,37 @@ func (g *Game) runPhysics() {
 						}
 					}
 				} else {
-					g.grid[idx] = Empty // Dissipate at ceiling
+					g.grid[idx] = Empty // hit ceiling
 				}
 
-				// Random decay
+				// fade out
 				if (cell == Smoke || cell == Steam) && rand.Float32() < 0.015 {
 					g.grid[idx] = Empty
 				}
 				continue
 			}
 
-			// PLANTS (Grow Up/Out)
+			// PLANTS
 			if cell == Plant {
 				if rand.Float32() < 0.04 {
-					g.growPlant(x, y)
+					g.updatePlant(x, y)
 				}
 				continue
 			}
 
-			// FIRE (Spreads all directions)
+			// FIRE
 			if cell == Fire {
 				if rand.Float32() < 0.12 {
 					g.grid[idx] = Smoke
 				}
-				g.spreadFire(x, y)
+				g.updateFire(x, y)
 				continue
 			}
 		}
 	}
 }
 
-func (g *Game) handlePlantGrowth(x, y int) {
-	// Plants drink water to grow
+func (g *Game) updatePlant(x, y int) {
 	for dy := -1; dy <= 1; dy++ {
 		for dx := -1; dx <= 1; dx++ {
 			tx, ty := x+dx, y+dy
@@ -315,10 +314,8 @@ func (g *Game) handlePlantGrowth(x, y int) {
 				tIdx := ty*gameWidth + tx
 				// drinks water
 				if g.grid[tIdx] == Water {
-					// Drink the water
-					g.grid[tIdx] = Plant // Or Empty if you want roots
-
-					// Sprout a new leaf nearby
+					g.grid[tIdx] = Plant
+					// grow leaf
 					gx, gy := x+(rand.Intn(3)-1), y+(rand.Intn(3)-1)
 					if gx >= 0 && gx < gameWidth && gy >= 0 && gy < gameHeight {
 						gIdx := gy*gameWidth + gx
@@ -326,14 +323,14 @@ func (g *Game) handlePlantGrowth(x, y int) {
 							g.grid[gIdx] = Plant
 						}
 					}
-					return // Only drink one pixel per frame per plant cell
+					return
 				}
 			}
 		}
 	}
 }
 
-func (g *Game) burn(x, y int) {
+func (g *Game) updateFire(x, y int) {
 	tx, ty := x+(rand.Intn(3)-1), y+(rand.Intn(3)-1)
 	if tx >= 0 && tx < gameWidth && ty >= 0 && ty < gameHeight {
 		tIdx := ty*gameWidth + tx
@@ -349,7 +346,6 @@ func (g *Game) burn(x, y int) {
 }
 
 func (g *Game) explode(cx, cy, r int) {
-	// circle blast
 	for y := -r; y <= r; y++ {
 		for x := -r; x <= r; x++ {
 			if x*x+y*y <= r*r {
@@ -373,7 +369,6 @@ func (g *Game) spawn(cx, cy, p int) {
 				tx, ty := cx+x, cy+y
 				if tx >= 0 && tx < gameWidth && ty >= 0 && ty < gameHeight {
 					tIdx := ty*gameWidth + tx
-					// Wall cannot be painted over easily
 					if p == Wall || g.grid[tIdx] != Wall {
 						g.grid[tIdx] = uint8(p)
 					}
@@ -390,8 +385,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	for i := range g.pixels {
 		g.pixels[i] = 0
 	}
-
-	// draw grid
 	for y := 0; y < gameHeight; y++ {
 		for x := 0; x < gameWidth; x++ {
 			idx := y*gameWidth + x
@@ -409,7 +402,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	ebitenutil.DrawRect(screen, float64(gameWidth), 0, float64(toolbarWidth), float64(screenHeight), color.RGBA{30, 30, 40, 255})
 	mx, my := ebiten.CursorPosition()
 	hovered := ""
-
 	for i, m := range materials {
 		bx, by := float64(gameWidth+8+(i%2)*25), float64(8+(i/2)*25)
 		if g.selected == m {
@@ -420,11 +412,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			hovered = matNames[m]
 		}
 	}
-
 	if hovered != "" {
 		text.Draw(screen, hovered, basicfont.Face7x13, mx-10, my-10, color.White)
 	}
-	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("Size: %d", g.brushSize), gameWidth+5, screenHeight-20)
+	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("Brush: %d", g.brushSize), gameWidth+5, screenHeight-20)
 }
 
 func (g *Game) Layout(w, h int) (int, int) {
