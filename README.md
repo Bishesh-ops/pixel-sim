@@ -26,7 +26,6 @@ Temperature isn't just a static value; it diffuses using a 4-point average. This
 
 $$T_{new} = \frac{T_{up} + T_{down} + T_{left} + T_{right}}{4} \times \text{decay}$$
 
-#  ControlsKeyActionLeft ClickSpawn MaterialRight ClickEraserScroll WheelChange Brush SizeSpacePause / ResumeRReset GridEscQuit
 
 #  Running LocallyYou'll need Go 1.18+ installed.Bash
 # Clone the repo
