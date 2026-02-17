@@ -1,64 +1,43 @@
-# Falling Sand Engine
+# Go Falling Sand
 
-A high-performance, 2D granular physics and thermodynamics simulation built in **Go** using the **Ebitengine** library. This project features a custom cellular automata engine capable of simulating fluid dynamics, heat diffusion, and material state changes.
+A granular physics sandbox written in Go using Ebitengine.I built this to dive into cellular automata, fluid dynamics, and pixel manipulation. It simulates 15+ elements interacting in real-time—liquids flow, gases rise, fire spreads, and plants grow (until you burn them down).
 
-## 🚀 Features
+##  Features
+### The Elements
+Play with solids (Sand, Stone, Wood), liquids (Water, Acid, Lava), gases (Smoke, Steam), and even electricity (Volt).
 
-* **15+ Unique Materials:** Includes solids (Sand, Stone, Wood), liquids (Water, Acid, Lava), gases (Smoke, Steam, Gas), and energy (VoltBolt).
-* **Thermodynamics Engine:** A secondary heat-map grid tracks temperature diffusion across the environment.
-* **Dynamic State Changes:** Materials react to heat (e.g., Sand melts into Glass at high temperatures, Water boils into Steam).
-* **Biological Growth:** Plants consume Water to grow and spread dynamically through the grid.
-* **Combustion & Explosions:** Realistic fire spread through flammable materials and radius-based TNT force.
-* **Custom UI Framework:** Integrated sidebar for material selection, brush size control, and real-time tooltips.
+### Reactions
+Materials actually interact.Water boils into Steam when near Lava.Acid dissolves Stone and Wood.Sand melts into Glass if it gets hot enough.
 
-## 🛠️ Technical Stack
+### Thermodynamics
+There's a background heat map calculating temperature diffusion. Things don't just change state randomly; they have to get hot first.
 
-* **Language:** Go (Golang)
-* **Graphics Library:** [Ebitengine](https://ebitengine.org/)
-* **Concepts:** Cellular Automata, Heat Diffusion, Probability-based State Machines, and Pixel-Buffer Manipulation.
+### Explosives
+TNT creates pressure waves and destroys the environment.
 
-## 🎮 Controls
+### Custom UI
+I wrote a custom sidebar to handle element selection and brush resizing without relying on heavy UI libraries.
 
-| Input | Action |
-| :--- | :--- |
-| **Left Click** | Spawn Selected Material |
-| **Right Click** | Erase (Empty) |
-| **Mouse Wheel** | Adjust Brush Size |
-| **Spacebar** | Pause/Resume Simulation |
-| **'R' Key** | Reset Grid (Clear All) |
-| **'S' Key** | Frame-by-frame Step (when paused) |
-| **Escape** | Exit Application |
+##  How it Works
+The engine runs on a fixed $320 \times 240$ grid, scaled up for the window.To keep the simulation stable and prevent "directional bias" (where sand piles up weirdly on one side), the engine alternates the scan direction every frame (Left-to-Right $\leftrightarrow$ Right-to-Left).
 
-## 🏗️ Architecture
+### The Heat Model
+Temperature isn't just a static value; it diffuses using a 4-point average. This creates natural gradients rather than blocky heat zones:
 
-The engine utilizes a **Double-Buffered Grid** approach to minimize directional bias. Each frame, the simulation alternates the sweep direction (Left-to-Right vs. Right-to-Left) to ensure fluids and gases flow naturally across the $320 \times 240$ internal resolution.
+$$T_{new} = \frac{T_{up} + T_{down} + T_{left} + T_{right}}{4} \times \text{decay}$$
 
-### Thermodynamics Logic
-Heat is calculated using a 4-point average diffusion algorithm:
+#  ControlsKeyActionLeft ClickSpawn MaterialRight ClickEraserScroll WheelChange Brush SizeSpacePause / ResumeRReset GridEscQuit
 
-$$T_{new} = \frac{T_{up} + T_{down} + T_{left} + T_{right}}{4} \times \text{dissipation}$$
+#  Running LocallyYou'll need Go 1.18+ installed.Bash
+# Clone the repo
+git clone https://github.com/your-username/pixel-sim.git
 
+cd pixel-sim
 
+# Tidy up dependencies
+go mod tidy
 
-## 🏁 Getting Started
+# Run it
+go run main.go
 
-1.  **Ensure you have Go installed** (Version 1.18+ recommended).
-2.  **Clone the repository:**
-    ```bash
-    git clone [https://github.com/your-username/pixel-sim.git](https://github.com/your-username/pixel-sim.git)
-    cd pixel-sim
-    ```
-3.  **Install dependencies:**
-    ```bash
-    go mod tidy
-    ```
-4.  **Run the simulation:**
-    ```bash
-    go run main.go
-    ```
-
----
-
-### About the Developer
-**Bishesh Shrestha** B.S. in Computer Science with a Minor in AI from Dakota State University.  
-Currently focused on Software Engineering and Data Engineering roles.
+***Built by Bishesh ShresthaCS & AI at Dakota State University.I'm currently looking for roles in Software or Data Engineering. Feel free to check out my other repos!***
