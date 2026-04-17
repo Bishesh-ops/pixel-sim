@@ -2,6 +2,8 @@
 
 A granular physics sandbox written in Go using Ebitengine.I built this to dive into cellular automata, fluid dynamics, and pixel manipulation. It simulates 15+ elements interacting in real-time—liquids flow, gases rise, fire spreads, and plants grow (until you burn them down).
 
+![Screenshot Placeholder](image.png)
+
 ##  Features
 ### The Elements
 Play with solids (Sand, Stone, Wood), liquids (Water, Acid, Lava), gases (Smoke, Steam), and even electricity (Volt).
